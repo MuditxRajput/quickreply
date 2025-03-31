@@ -1,7 +1,7 @@
 "use client";
 import axios from "axios";
+import { Phone, Search, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
-
 export default function ContactList() {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(false);
