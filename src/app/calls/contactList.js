@@ -1,14 +1,18 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Phone, Search, UserPlus } from "lucide-react"
-import { useState } from "react"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import axios from "axios";
+import { Phone, Search, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
+
 export default function ContactList() {
+  const [searchTerm, setSearchTerm] = useState("");
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     async function fetchContacts() {
@@ -33,6 +37,14 @@ export default function ContactList() {
     }
     setLoading(false);
   };
+
+  const filteredContacts = contacts.filter(
+    (contact) =>
+      contact?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact?.phone?.includes(searchTerm)
+  );
+  
+  const displayContacts = expanded ? filteredContacts : filteredContacts.slice(0, 5);
 
   return (
     <div className="space-y-4">
@@ -69,7 +81,7 @@ export default function ContactList() {
           <TableBody>
             {displayContacts.map((contact) => (
               <TableRow key={contact.id}>
-                <TableCell className="font-medium">{contact.name}</TableCell>
+                <TableCell className="font-medium">{contact.fullName}</TableCell>
                 <TableCell>{contact.phone}</TableCell>
                 {expanded && (
                   <TableCell>
@@ -87,7 +99,13 @@ export default function ContactList() {
                 )}
                 {expanded && <TableCell>{contact.lastContact}</TableCell>}
                 <TableCell>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-8 w-8 p-0" 
+                    onClick={() => startCall(contact.id)}
+                    disabled={loading}
+                  >
                     <Phone className="h-4 w-4" />
                     <span className="sr-only">Call</span>
                   </Button>
@@ -100,11 +118,11 @@ export default function ContactList() {
 
       {!expanded && filteredContacts.length > 5 && (
         <div className="text-center">
-          <Button variant="link" size="sm">
+          <Button variant="link" size="sm" onClick={() => setExpanded(true)}>
             View all {filteredContacts.length} contacts
           </Button>
         </div>
       )}
     </div>
-  )
+  );
 }
