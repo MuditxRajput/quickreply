@@ -1,7 +1,11 @@
-"use client";
-import axios from "axios";
-import { Phone, Search, UserPlus } from "lucide-react";
-import { useEffect, useState } from "react";
+"use client"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Phone, Search, UserPlus } from "lucide-react"
+import { useState } from "react"
 export default function ContactList() {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(false);
