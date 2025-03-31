@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  fullName  String
+  email     String   @unique
+  phone     String
+  status    String   @default("new") // new, contacted, interested, closed
+  avatarUrl String?  @map("avatar_url")
+  password  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  crmIntegrations CrmIntegration[]
+  contacts Contact[]
+  calls Call[]
+
+  @@map("users")
+}
+
+model CrmIntegration {
+  id           String   @id @default(uuid())
+  userId       String
+  platform     String   // "hubspot" or "pipedrive"
+  isActive     Boolean  @default(true)
+  accessToken  String?
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, platform])  // Unique CRM integration per user
+  @@index([userId])
+}
+
+model Call {
+  id             String    @id @default(uuid())
+  userId         String
+  contactId      String
+  direction      String    // "inbound" or "outbound"
+  status         String    // "scheduled", "in-progress", "completed", "failed"
+  startTime      DateTime
+  endTime        DateTime?
+  duration       Int?      // in seconds
+  recordingUrl   String?
+  transcriptText String?   
+  summary        String?   
+  qualification  String?   // "qualified", "not_qualified"
+
+  user    User    @relation(fields: [userId], references: [id])
+  contact Contact @relation(fields: [contactId], references: [id])
+
+  @@index([userId])
+  @@index([contactId])
+  @@map("calls")
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  userId    String
+  fullName  String
+  email     String?  @unique
+  phone     String
+  category  String?
+  source    String   // "csv_import", "manual"
+  status    String   @default("pending") // "pending", "contacted", "completed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id])
+  calls Call[]
+
+  @@index([userId])
+  @@map("contacts")
+}
