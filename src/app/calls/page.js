@@ -10,7 +10,7 @@ import { useState } from "react"
 import CallDetailModal from "./CallDetailModal"
 import CallMetrics from "./CallMetrics"
 import CallTable from "./CallTable"
-import ContactList from "./ContactList"
+import ContactList from "./contactList"
 import UploadCSV from "./UploadCSV"
 
 export default function AICallsPage() {
