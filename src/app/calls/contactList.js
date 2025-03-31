@@ -1,0 +1,106 @@
+"use client";
+import axios from "axios";
+import { useEffect, useState } from "react";
+
+export default function ContactList() {
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchContacts() {
+      try {
+        const { data } = await axios.get("/api/contacts/getContact");
+        setContacts(data);
+      } catch (error) {
+        console.error("Error fetching contacts", error);
+      }
+    }
+    fetchContacts();
+  }, []);
+
+  const startCall = async (contactId) => {
+    setLoading(true);
+    try {
+      const { data } = await axios.post("/api/calls", { contactId });
+      alert(`Call started for ${data.contact.fullName}`);
+    } catch (error) {
+      console.error("Error starting call", error);
+      alert("Call failed");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search contacts..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        {expanded && (
+          <Button size="sm" variant="outline" className="gap-1">
+            <UserPlus className="h-4 w-4" />
+            Add Contact
+          </Button>
+        )}
+      </div>
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Phone</TableHead>
+              {expanded && <TableHead>Status</TableHead>}
+              {expanded && <TableHead>Last Contact</TableHead>}
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayContacts.map((contact) => (
+              <TableRow key={contact.id}>
+                <TableCell className="font-medium">{contact.name}</TableCell>
+                <TableCell>{contact.phone}</TableCell>
+                {expanded && (
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={
+                        contact.status === "ready"
+                          ? "bg-green-50 text-green-700 border-green-200"
+                          : "bg-blue-50 text-blue-700 border-blue-200"
+                      }
+                    >
+                      {contact.status === "ready" ? "Ready to Call" : "Recently Contacted"}
+                    </Badge>
+                  </TableCell>
+                )}
+                {expanded && <TableCell>{contact.lastContact}</TableCell>}
+                <TableCell>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                    <Phone className="h-4 w-4" />
+                    <span className="sr-only">Call</span>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {!expanded && filteredContacts.length > 5 && (
+        <div className="text-center">
+          <Button variant="link" size="sm">
+            View all {filteredContacts.length} contacts
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}

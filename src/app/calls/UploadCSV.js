@@ -1,93 +1,133 @@
-"use client";
-import axios from "axios";
-import { useEffect, useState } from "react";
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { AlertCircle, CheckCircle, FileText, Upload, X } from "lucide-react"
+import { useState } from "react"
 
 export default function UploadCSV() {
-  const [file, setFile] = useState(null);
-  const [contacts, setContacts] = useState([]);
-  const [Papa, setPapa] = useState(null);
+  const [file, setFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadStatus, setUploadStatus] = useState(null) // 'success', 'error', null
+  const [errorMessage, setErrorMessage] = useState("")
 
-  // Add useEffect to dynamically import Papa
-  useEffect(() => {
-    import('papaparse').then(module => {
-      setPapa(module.default);
-    });
-  }, []);
-
-  // Handle file selection
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
+    const selectedFile = e.target.files[0]
+    if (selectedFile && selectedFile.name.endsWith(".csv")) {
+      setFile(selectedFile)
+      setUploadStatus(null)
+      setErrorMessage("")
+    } else {
+      setFile(null)
+      setUploadStatus("error")
+      setErrorMessage("Please select a valid CSV file")
+    }
+  }
 
-  // Parse CSV
-  const handleParseCSV = () => {
-    if (!file) return alert("Please select a CSV file.");
-    if (!Papa) return alert("Parser is not ready yet.");
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        setContacts(result.data);
-      },
-    });
-  };
-
-  // Upload to API
   const handleUpload = async () => {
-    if (contacts.length === 0) return alert("No contacts to upload.");
+    if (!file) return
+
+    setUploading(true)
+    setUploadProgress(0)
+
+    // Simulate upload progress
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 95) {
+          clearInterval(interval)
+          return prev
+        }
+        return prev + 5
+      })
+    }, 100)
 
     try {
-      const response = await axios.post("/api/contacts", { contacts });
-      alert("Contacts uploaded successfully!");
-      setContacts([]);
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      clearInterval(interval)
+      setUploadProgress(100)
+      setUploadStatus("success")
+
+      // Reset after success
+      setTimeout(() => {
+        setFile(null)
+        setUploading(false)
+        setUploadProgress(0)
+      }, 2000)
     } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Upload failed. Check console for details.");
+      clearInterval(interval)
+      setUploadStatus("error")
+      setErrorMessage("Upload failed. Please try again.")
+      setUploading(false)
     }
-  };
+  }
+
+  const resetUpload = () => {
+    setFile(null)
+    setUploading(false)
+    setUploadProgress(0)
+    setUploadStatus(null)
+    setErrorMessage("")
+  }
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md">
-      <h2 className="text-lg font-bold mb-2">Upload Contacts (CSV)</h2>
-      
-      {/* File Input */}
-      <input type="file" accept=".csv" onChange={handleFileChange} className="mb-2" />
-      
-      {/* Parse & Upload Buttons */}
-      <div className="flex gap-2">
-        <button onClick={handleParseCSV} className="bg-blue-500 text-white px-4 py-2 rounded">
-          Parse CSV
-        </button>
-        <button onClick={handleUpload} className="bg-green-500 text-white px-4 py-2 rounded">
-          Upload Contacts
-        </button>
-      </div>
+    <Card className="mb-6">
+      <CardContent className="pt-6">
+        {!file ? (
+          <div
+            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => document.getElementById("csv-upload").click()}
+          >
+            <input id="csv-upload" type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+            <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-1">Upload Contact CSV</h3>
+            <p className="text-sm text-muted-foreground mb-2">Drag and drop your CSV file here, or click to browse</p>
+            <p className="text-xs text-muted-foreground">
+              Your CSV should include name, phone number, and any additional contact information
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 border rounded-md bg-background">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(2)} KB</p>
+                  </div>
+                </div>
 
-      {/* Preview Table */}
-      {contacts.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-md font-semibold">Preview ({contacts.length} contacts)</h3>
-          <table className="w-full border-collapse border border-gray-300 mt-2">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border p-2">Name</th>
-                <th className="border p-2">Email</th>
-                <th className="border p-2">Phone</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.slice(0, 5).map((contact, index) => (
-                <tr key={index} className="border">
-                  <td className="p-2 border">{contact.fullName}</td>
-                  <td className="p-2 border">{contact.email || "N/A"}</td>
-                  <td className="p-2 border">{contact.phone}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+                <div className="flex items-center gap-2">
+                  {uploading && (
+                    <div className="w-24">
+                      <Progress value={uploadProgress} className="h-2" />
+                    </div>
+                  )}
+                  {uploadStatus === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
+                  {uploadStatus === "error" && <AlertCircle className="h-5 w-5 text-destructive" />}
+                  <Button variant="ghost" size="icon" onClick={resetUpload} disabled={uploading} className="h-8 w-8">
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Remove file</span>
+                  </Button>
+                </div>
+              </div>
+
+              {uploadStatus === "error" && <div className="mt-2 text-sm text-destructive">{errorMessage}</div>}
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleUpload} disabled={uploading || uploadStatus === "success"}>
+                {uploading ? "Uploading..." : "Upload Contacts"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
+
