@@ -64,13 +64,13 @@ export async function POST(req) {
       track: "both_tracks",
       metadata: JSON.stringify(callMetadata)
     });
-
+   console.log(twiml.toString());
     // Initiate call
     const call = await client.calls.create({
       to: contact.phone,
       from: process.env.TWILIO_PHONE_NUMBER,
       twiml: twiml.toString(),
-      statusCallback: `/api/calls/status?callId=${callRecord.id}`,
+      statusCallback: process.env.RETELL_WEBHOOK_URL,
       statusCallbackEvent: ["initiated", "ringing", "answered", "completed"]
     });
 

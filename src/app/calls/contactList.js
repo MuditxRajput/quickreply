@@ -29,7 +29,7 @@ export default function ContactList() {
   const startCall = async (contactId) => {
     setLoading(true);
     try {
-      const { data } = await axios.post("/api/calls", { contactId });
+      const { data } = await axios.post(`/api/calls`, { contactId });
     } catch (error) {
       console.error("Error starting call", error);
       alert("Call failed");
