@@ -30,7 +30,7 @@ export default function ContactList() {
     setLoading(true);
     try {
       const { data } = await axios.post("/api/calls", { contactId });
-      alert(`Call started for ${data.contact.fullName}`);
+      alert(`Call started for ${data.message}`);
     } catch (error) {
       console.error("Error starting call", error);
       alert("Call failed");

@@ -23,6 +23,7 @@ export default function AICallsPage() {
     try {
       setLoading(true)
       const response = await axios.post("/api/calls")
+      console.log("response", response);
       alert("All calls initiated successfully!")
     } catch (error) {
       console.error("Error starting calls:", error)

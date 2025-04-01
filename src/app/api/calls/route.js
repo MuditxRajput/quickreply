@@ -43,8 +43,8 @@
 //     return NextResponse.json({ error: "Failed to create call" }, { status: 500 });
 //   }
 // }
-import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { NextResponse } from "next/server";
 import twilio from "twilio";
 
 const prisma = new PrismaClient();
@@ -86,7 +86,6 @@ export async function POST(req) {
         callSid: call.sid,
       },
     });
-
     return NextResponse.json({ message: "Call initiated successfully", callId: savedCall.id, callSid: call.sid });
   } catch (error) {
     console.error("Call initiation failed:", error);
