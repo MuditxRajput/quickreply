@@ -1,26 +1,31 @@
 import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 import twilio from "twilio";
-
 const prisma = new PrismaClient();
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 export async function POST(req) {
   try {
-    const { contactId, userId } = await req.json();
+    
+    const token = req.cookies.get("auth_token")?.value;
+    
+    if (!token) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+   
 
+    // Verify the token and get userId
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "reply");
+    const userId = decoded.id;
+    const { contactId } = await req.json();
     // Verify user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId, userId }
-    });
+    const contact = await prisma.contact.findUnique({ where: { id: contactId, userId } });
 
     if (!contact) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });

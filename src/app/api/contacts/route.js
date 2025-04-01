@@ -14,6 +14,7 @@ export async function POST(req) {
     if (!token) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+    console.log("token", token);
 
     // Verify the token and get userId
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "reply");
