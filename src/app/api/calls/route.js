@@ -7,7 +7,7 @@ const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TO
 
 export async function POST(req) {
   try {
-    
+    console.log("Starting call initiation");
     const token = req.cookies.get("auth_token")?.value;
     
     if (!token) {
