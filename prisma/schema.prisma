@@ -19,27 +19,10 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   
-  crmIntegrations CrmIntegration[]
   contacts Contact[]
   calls Call[]
 
   @@map("users")
-}
-
-model CrmIntegration {
-  id           String   @id @default(uuid())
-  userId       String
-  platform     String   // "hubspot" or "pipedrive"
-  isActive     Boolean  @default(true)
-  accessToken  String?
-  refreshToken String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([userId, platform])  // Unique CRM integration per user
-  @@index([userId])
 }
 
 model Call {
@@ -55,7 +38,7 @@ model Call {
   transcriptText String?   
   summary        String?   
   qualification  String?   // "qualified", "not_qualified"
-  callSid        String?   // Add this field to store callSid (optional)
+  callSid        String?   // Twilio call SID
 
   user    User    @relation(fields: [userId], references: [id])
   contact Contact @relation(fields: [contactId], references: [id])
@@ -64,7 +47,6 @@ model Call {
   @@index([contactId])
   @@map("calls")
 }
-
 
 model Contact {
   id        String   @id @default(uuid())

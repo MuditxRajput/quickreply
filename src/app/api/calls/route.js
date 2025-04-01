@@ -1,94 +1,91 @@
-// import { PrismaClient } from "@prisma/client";
-// import { NextResponse } from "next/server";
-
-// const prisma = new PrismaClient();
-
-// // Get all calls
-// export async function GET() {
-//   try {
-//     const calls = await prisma.call.findMany({
-//       include: {
-//         user: true,
-//         contact: true,
-//       },
-//     });
-//     return NextResponse.json(calls, { status: 200 });
-//   } catch (error) {
-//     return NextResponse.json({ error: "Failed to fetch calls" }, { status: 500 });
-//   }
-// }
-
-// // Create a new call
-// export async function POST(req) {
-//   try {
-//     const body = await req.json();
-//     const { userId, contactId, direction, status, startTime } = body;
-
-//     if (!userId || !contactId || !direction || !status || !startTime) {
-//       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-//     }
-
-//     const newCall = await prisma.call.create({
-//       data: {
-//         userId,
-//         contactId,
-//         direction,
-//         status,
-//         startTime: new Date(startTime),
-//       },
-//     });
-
-//     return NextResponse.json(newCall, { status: 201 });
-//   } catch (error) {
-//     return NextResponse.json({ error: "Failed to create call" }, { status: 500 });
-//   }
-// }
 import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 
 const prisma = new PrismaClient();
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-const RETELL_AI_WEBHOOK = process.env.RETELL_AI_WEBHOOK_URL;
 
 export async function POST(req) {
   try {
-    const { contactId } = await req.json();
+    const { contactId, userId } = await req.json();
 
-    // Fetch the contact from Prisma
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+      where: { id: contactId, userId }
     });
 
     if (!contact) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    if (!contact.phone) {
-      return NextResponse.json({ error: "Phone number is missing for this contact" }, { status: 400 });
-    }
+    // Create call record
+    const callRecord = await prisma.call.create({
+      data: {
+        userId,
+        contactId,
+        direction: "outbound",
+        status: "scheduled",
+        startTime: new Date()
+      }
+    });
 
-    // Start AI-powered call using Twilio & Retell.ai
+    // Prepare metadata for Retell AI
+    const callMetadata = {
+      callId: callRecord.id,
+      userId,
+      contactInfo: {
+        name: contact.fullName,
+        phone: contact.phone,
+        email: contact.email,
+        category: contact.category
+      },
+      qualificationCriteria: contact.category ? `Interested in ${contact.category}` : "General inquiry"
+    };
+
+    // Configure Twilio with Retell AI
+    const twiml = new twilio.twiml.VoiceResponse();
+    twiml.connect({
+      action: `/api/calls/status?callId=${callRecord.id}`,
+    }).stream({
+      url: `wss://api.retellai.com/call/${process.env.RETELL_AGENT_ID}`,
+      track: "both_tracks",
+      metadata: JSON.stringify(callMetadata)
+    });
+
+    // Initiate call
     const call = await client.calls.create({
       to: contact.phone,
       from: process.env.TWILIO_PHONE_NUMBER,
-      url: RETELL_AI_WEBHOOK, // Retell.ai handles the conversation
+      twiml: twiml.toString(),
+      statusCallback: `/api/calls/status?callId=${callRecord.id}`,
+      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"]
     });
 
-    // Save call log in Prisma
-    const savedCall = await prisma.call.create({
-      data: {
-        userId: contact.userId,
-        contactId: contact.id,
-        direction: "outbound",
-        status: "scheduled",
-        startTime: new Date(),
-        callSid: call.sid,
-      },
+    // Update call with Twilio SID
+    await prisma.call.update({
+      where: { id: callRecord.id },
+      data: { callSid: call.sid, status: "initiated" }
     });
-    return NextResponse.json({ message: "Call initiated successfully", callId: savedCall.id, callSid: call.sid });
+
+    return NextResponse.json({
+      success: true,
+      callId: callRecord.id,
+      callSid: call.sid
+    });
+
   } catch (error) {
     console.error("Call initiation failed:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to initiate call", details: error.message },
+      { status: 500 }
+    );
   }
 }
