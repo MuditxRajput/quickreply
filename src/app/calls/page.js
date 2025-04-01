@@ -22,7 +22,7 @@ export default function AICallsPage() {
   const handleCallAll = async () => {
     try {
       setLoading(true)
-      const response = await axios.post("/api/calls/start-all")
+      const response = await axios.post("/api/calls")
       alert("All calls initiated successfully!")
     } catch (error) {
       console.error("Error starting calls:", error)

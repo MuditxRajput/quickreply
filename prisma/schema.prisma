@@ -55,6 +55,7 @@ model Call {
   transcriptText String?   
   summary        String?   
   qualification  String?   // "qualified", "not_qualified"
+  callSid        String?   // Add this field to store callSid (optional)
 
   user    User    @relation(fields: [userId], references: [id])
   contact Contact @relation(fields: [contactId], references: [id])
@@ -63,6 +64,7 @@ model Call {
   @@index([contactId])
   @@map("calls")
 }
+
 
 model Contact {
   id        String   @id @default(uuid())
