@@ -40,7 +40,6 @@ export async function POST(req) {
             endTime: new Date(call.end_timestamp),
             duration,
             transcriptText: call.transcript || "No transcript available",
-            transcriptObject: call.transcript_object ? JSON.stringify(call.transcript_object) : null,
             recordingUrl: call.recording_url || null,
             publicLogUrl: call.public_log_url || null,
             disconnectionReason: call.disconnection_reason || null,
