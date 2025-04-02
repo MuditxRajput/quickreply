@@ -38,7 +38,7 @@ model Call {
   transcriptText String?   
   summary        String?   
   qualification  String?   // "qualified", "not_qualified"
-  callSid        String?   // Twilio call SID
+ callSid String? @unique
 
   user    User    @relation(fields: [userId], references: [id])
   contact Contact @relation(fields: [contactId], references: [id])
