@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
+import axios from "axios";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
-import axios from "axios";
 
 const prisma = new PrismaClient();
 
@@ -9,6 +9,7 @@ export async function POST(req) {
   try {
     console.log("Starting call initiation");
     const token = req.cookies.get("auth_token")?.value;
+
 
     if (!token) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -56,7 +57,7 @@ export async function POST(req) {
 
     // Initiate call using Retell AI API
     const retellResponse = await axios.post(
-      "https://api.retellai.com/create-phone-call",
+      "https://api.retellai.com/v2/create-phone-call",
       {
         from_number: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number linked to Retell
         to_number: contact.phone, // Customer's number
