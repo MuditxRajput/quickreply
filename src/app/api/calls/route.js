@@ -1,24 +1,24 @@
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
-import twilio from "twilio";
+import axios from "axios";
+
 const prisma = new PrismaClient();
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 export async function POST(req) {
   try {
     console.log("Starting call initiation");
     const token = req.cookies.get("auth_token")?.value;
-    
+
     if (!token) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
-   
 
     // Verify the token and get userId
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "reply");
     const userId = decoded.id;
     const { contactId } = await req.json();
+
     // Verify user exists
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -26,7 +26,6 @@ export async function POST(req) {
     }
 
     const contact = await prisma.contact.findUnique({ where: { id: contactId, userId } });
-
     if (!contact) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
@@ -38,8 +37,8 @@ export async function POST(req) {
         contactId,
         direction: "outbound",
         status: "scheduled",
-        startTime: new Date()
-      }
+        startTime: new Date(),
+      },
     });
 
     // Prepare metadata for Retell AI
@@ -50,44 +49,44 @@ export async function POST(req) {
         name: contact.fullName,
         phone: contact.phone,
         email: contact.email,
-        category: contact.category
+        category: contact.category,
       },
-      qualificationCriteria: contact.category ? `Interested in ${contact.category}` : "General inquiry"
+      qualificationCriteria: contact.category ? `Interested in ${contact.category}` : "General inquiry",
     };
 
-    // Configure Twilio with Retell AI
-    const twiml = new twilio.twiml.VoiceResponse();
-    twiml.connect({
-      action: `/api/calls/status?callId=${callRecord.id}`,
-    }).stream({
-      url: `wss://api.retellai.com/call/${process.env.RETELL_AGENT_ID}`,
-      track: "both_tracks",
-      metadata: JSON.stringify(callMetadata)
-    });
-   console.log(twiml.toString());
-    // Initiate call
-    const call = await client.calls.create({
-      to: contact.phone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      twiml: twiml.toString(),
-      statusCallback: process.env.RETELL_WEBHOOK_URL,
-      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"]
-    });
+    // Initiate call using Retell AI API
+    const retellResponse = await axios.post(
+      "https://api.retellai.com/create-phone-call",
+      {
+        from_number: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number linked to Retell
+        to_number: contact.phone, // Customer's number
+        override_agent_id: process.env.RETELL_AGENT_ID, // Your Retell agent ID
+        metadata: callMetadata, // Optional: Pass metadata to Retell
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.RETELL_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    // Update call with Twilio SID
+    // Update call record with Retell call ID
     await prisma.call.update({
       where: { id: callRecord.id },
-      data: { callSid: call.sid, status: "initiated" }
+      data: {
+        callSid: retellResponse.data.call_id, // Retell uses call_id, not Twilio's SID
+        status: "initiated",
+      },
     });
 
     return NextResponse.json({
       success: true,
       callId: callRecord.id,
-      callSid: call.sid
+      retellCallId: retellResponse.data.call_id,
     });
-
   } catch (error) {
-    console.error("Call initiation failed:", error);
+    console.error("Call initiation failed:", error.response?.data || error.message);
     return NextResponse.json(
       { error: "Failed to initiate call", details: error.message },
       { status: 500 }
