@@ -1,5 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
 
@@ -8,7 +7,10 @@ export async function POST(req) {
     const { event, call } = await req.json();
     if (!event || !call || !call.call_id) {
       console.error("Invalid webhook payload:", { event, call });
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+      return new Response(JSON.stringify({ error: "Invalid payload" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     console.log(`Webhook event received: ${event}`, JSON.stringify(call, null, 2));
@@ -38,7 +40,11 @@ export async function POST(req) {
             endTime: new Date(call.end_timestamp),
             duration,
             transcriptText: call.transcript || "No transcript available",
+            transcriptObject: call.transcript_object ? JSON.stringify(call.transcript_object) : null,
             recordingUrl: call.recording_url || null,
+            publicLogUrl: call.public_log_url || null,
+            disconnectionReason: call.disconnection_reason || null,
+            cost: call.call_cost?.combined_cost || null,
           },
         });
         break;
@@ -61,13 +67,20 @@ export async function POST(req) {
         console.log("Unhandled event:", event);
     }
 
-    return NextResponse.json({}, { status: 204 });
+    // Return a 204 response with no body
+    return new Response(null, { status: 204 });
   } catch (error) {
     console.error("Webhook error:", error.message, error.stack);
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+    return new Response(JSON.stringify({ error: "Webhook processing failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ status: "Webhook endpoint active" }, { status: 200 });
+  return new Response(JSON.stringify({ status: "Webhook endpoint active" }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 }
