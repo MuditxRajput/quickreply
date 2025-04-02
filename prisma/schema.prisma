@@ -31,6 +31,7 @@ model Call {
   contactId        String
   direction        String    // "inbound" or "outbound"
   status           String    // "scheduled", "in-progress", "completed", "failed"
+  sentAt           DateTime? // Add this for when the call was sent/queued
   startTime        DateTime
   endTime          DateTime?
   duration         Int?      // in seconds
@@ -41,6 +42,7 @@ model Call {
   transcriptText   String?   
   summary          String?   
   qualification    String?   // "qualified", "not_qualified"
+  userSentiment    String?   // "Positive", "Negative", "Neutral", "Unknown"
   callSid          String?   @unique
 
   user    User    @relation(fields: [userId], references: [id])
@@ -50,6 +52,7 @@ model Call {
   @@index([contactId])
   @@map("calls")
 }
+
 
 model Contact {
   id        String   @id @default(uuid())

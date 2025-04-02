@@ -32,22 +32,39 @@ export default function UploadCSV() {
     setUploading(true)
     setUploadProgress(0)
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 95) {
-          clearInterval(interval)
-          return prev
-        }
-        return prev + 5
-      })
-    }, 100)
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Read and parse the CSV file
+      const text = await file.text()
+      const contacts = parseCSV(text)
+
+      // Simulate upload progress
+      const interval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(interval)
+            return prev
+          }
+          return prev + 5
+        })
+      }, 100)
+
+      // Send the parsed contacts to the API
+      const response = await fetch("/api/contacts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ contacts }),
+        credentials: "include", // Include cookies (for auth_token)
+      })
 
       clearInterval(interval)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Upload failed")
+      }
+
       setUploadProgress(100)
       setUploadStatus("success")
 
@@ -58,9 +75,8 @@ export default function UploadCSV() {
         setUploadProgress(0)
       }, 2000)
     } catch (error) {
-      clearInterval(interval)
       setUploadStatus("error")
-      setErrorMessage("Upload failed. Please try again.")
+      setErrorMessage(error.message || "Upload failed. Please try again.")
       setUploading(false)
     }
   }
@@ -71,6 +87,24 @@ export default function UploadCSV() {
     setUploadProgress(0)
     setUploadStatus(null)
     setErrorMessage("")
+  }
+
+  // Simple CSV parser (assumes headers: fullName, email, phone, category)
+  const parseCSV = (csvText) => {
+    const lines = csvText.trim().split("\n")
+    const headers = lines[0].split(",").map((header) => header.trim())
+    const contacts = []
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(",").map((value) => value.trim())
+      const contact = {}
+      headers.forEach((header, index) => {
+        contact[header] = values[index] || ""
+      })
+      contacts.push(contact)
+    }
+
+    return contacts
   }
 
   return (
@@ -130,4 +164,3 @@ export default function UploadCSV() {
     </Card>
   )
 }
-

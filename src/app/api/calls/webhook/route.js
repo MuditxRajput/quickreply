@@ -58,6 +58,7 @@ export async function POST(req) {
           data: {
             summary: call.call_analysis.call_summary || "No summary available",
             qualification: call.call_analysis.user_sentiment || "Unknown",
+            userSentiment: call.call_analysis.user_sentiment || "Unknown", // Save user sentiment
           },
         });
         break;

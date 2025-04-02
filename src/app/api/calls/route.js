@@ -5,37 +5,14 @@ import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
 
-export async function POST(req) {
+// Helper function to initiate a call for a single contact
+const initiateCall = async (userId, contact, callMetadataBase) => {
   try {
-    console.log("Starting call initiation");
-    const token = req.cookies.get("auth_token")?.value;
-
-
-    if (!token) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-
-    // Verify the token and get userId
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "reply");
-    const userId = decoded.id;
-    const { contactId } = await req.json();
-
-    // Verify user exists
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    const contact = await prisma.contact.findUnique({ where: { id: contactId, userId } });
-    if (!contact) {
-      return NextResponse.json({ error: "Contact not found" }, { status: 404 });
-    }
-
     // Create call record
     const callRecord = await prisma.call.create({
       data: {
         userId,
-        contactId,
+        contactId: contact.id,
         direction: "outbound",
         status: "scheduled",
         startTime: new Date(),
@@ -44,8 +21,8 @@ export async function POST(req) {
 
     // Prepare metadata for Retell AI
     const callMetadata = {
+      ...callMetadataBase,
       callId: callRecord.id,
-      userId,
       contactInfo: {
         name: contact.fullName,
         phone: contact.phone,
@@ -55,14 +32,17 @@ export async function POST(req) {
       qualificationCriteria: contact.category ? `Interested in ${contact.category}` : "General inquiry",
     };
 
+    // Format the phone number
+    const toNumber = contact.phone.startsWith("+") ? contact.phone : `+${contact.phone}`;
+
     // Initiate call using Retell AI API
     const retellResponse = await axios.post(
       "https://api.retellai.com/v2/create-phone-call",
       {
-        from_number: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number linked to Retell
-        to_number: contact.phone, // Customer's number
-        override_agent_id: process.env.RETELL_AGENT_ID, // Your Retell agent ID
-        metadata: callMetadata, // Optional: Pass metadata to Retell
+        from_number: process.env.TWILIO_PHONE_NUMBER,
+        to_number: toNumber,
+        override_agent_id: process.env.RETELL_AGENT_ID,
+        metadata: callMetadata,
       },
       {
         headers: {
@@ -76,20 +56,95 @@ export async function POST(req) {
     await prisma.call.update({
       where: { id: callRecord.id },
       data: {
-        callSid: retellResponse.data.call_id, // Retell uses call_id, not Twilio's SID
+        callSid: retellResponse.data.call_id,
         status: "initiated",
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      callId: callRecord.id,
-      retellCallId: retellResponse.data.call_id,
-    });
+    return { success: true, callId: callRecord.id, retellCallId: retellResponse.data.call_id };
   } catch (error) {
-    console.error("Call initiation failed:", error.response?.data || error.message);
+    console.error(`Failed to initiate call for contact ${contact.id}:`, error.response?.data || error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export async function POST(req) {
+  try {
+    console.log("Starting call initiation");
+    const token = req.cookies.get("auth_token")?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // Verify the token and get userId
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "reply");
+    const userId = decoded.id;
+
+    // Verify user exists
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Get the request body
+    const { contactId } = await req.json();
+
+    // Base metadata for Retell AI
+    const callMetadataBase = {
+      userId,
+    };
+
+    if (contactId) {
+      // Case 1: Initiate a call for a single contact
+      const contact = await prisma.contact.findUnique({ where: { id: contactId, userId } });
+      if (!contact) {
+        return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+      }
+
+      const result = await initiateCall(userId, contact, callMetadataBase);
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: "Failed to initiate call", details: result.error },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        callId: result.callId,
+        retellCallId: result.retellCallId,
+      });
+    } else {
+      // Case 2: Initiate calls for all contacts
+      const contacts = await prisma.contact.findMany({
+        where: { userId },
+      });
+
+      if (contacts.length === 0) {
+        return NextResponse.json({ message: "No contacts found to call" }, { status: 200 });
+      }
+
+      // Initiate a call for each contact
+      const callPromises = contacts.map(contact => initiateCall(userId, contact, callMetadataBase));
+      const results = await Promise.all(callPromises);
+
+      // Summarize the results
+      const successfulCalls = results.filter(result => result.success).length;
+      const failedCalls = results.length - successfulCalls;
+
+      return NextResponse.json({
+        message: `Initiated calls for ${results.length} contacts`,
+        successfulCalls,
+        failedCalls,
+        details: results,
+      });
+    }
+  } catch (error) {
+    console.error("Call initiation failed:", error.message, error.stack);
     return NextResponse.json(
-      { error: "Failed to initiate call", details: error.message },
+      { error: "Failed to initiate calls", details: error.message },
       { status: 500 }
     );
   }
