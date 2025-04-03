@@ -6,12 +6,11 @@ import { NextResponse } from "next/server";
 const prisma = new PrismaClient();
 
 // Helper function to initiate a call for a single contact
-const initiateCall = async (userId, contact, callMetadataBase) => {
+const initiateCall = async (contact, callMetadataBase) => {
   try {
     // Create call record
     const callRecord = await prisma.call.create({
       data: {
-        userId,
         contactId: contact.id,
         direction: "outbound",
         status: "scheduled",
@@ -71,20 +70,19 @@ const initiateCall = async (userId, contact, callMetadataBase) => {
 export async function POST(req) {
   try {
     console.log("Starting call initiation");
+
+    // Get token from cookies (Optional authentication)
     const token = req.cookies.get("auth_token")?.value;
+    let userId = null;
 
-    if (!token) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-
-    // Verify the token and get userId
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "reply");
-    const userId = decoded.id;
-
-    // Verify user exists
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (token) {
+      try {
+        // Verify the token and get userId
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "reply");
+        userId = decoded.id;
+      } catch (error) {
+        console.warn("Invalid or expired token");
+      }
     }
 
     // Get the request body
@@ -97,12 +95,15 @@ export async function POST(req) {
 
     if (contactId) {
       // Case 1: Initiate a call for a single contact
-      const contact = await prisma.contact.findUnique({ where: { id: contactId, userId } });
+      const contact = await prisma.contact.findUnique({
+        where: { id: contactId }, // No longer filtering by userId
+      });
+
       if (!contact) {
         return NextResponse.json({ error: "Contact not found" }, { status: 404 });
       }
 
-      const result = await initiateCall(userId, contact, callMetadataBase);
+      const result = await initiateCall(contact, callMetadataBase);
 
       if (!result.success) {
         return NextResponse.json(
@@ -117,9 +118,9 @@ export async function POST(req) {
         retellCallId: result.retellCallId,
       });
     } else {
-      // Case 2: Initiate calls for all contacts
+      // Case 2: Initiate calls for all contacts (without requiring userId)
       const contacts = await prisma.contact.findMany({
-        where: { userId },
+        where: userId ? { userId } : {}, // Fetch all contacts if userId is null
       });
 
       if (contacts.length === 0) {
@@ -127,7 +128,7 @@ export async function POST(req) {
       }
 
       // Initiate a call for each contact
-      const callPromises = contacts.map(contact => initiateCall(userId, contact, callMetadataBase));
+      const callPromises = contacts.map(contact => initiateCall(contact, callMetadataBase));
       const results = await Promise.all(callPromises);
 
       // Summarize the results

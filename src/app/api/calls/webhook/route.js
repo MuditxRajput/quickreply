@@ -4,6 +4,7 @@ const prisma = new PrismaClient();
 
 export async function POST(req) {
   try {
+    console.log("Webhook received");
     const { event, call } = await req.json();
     if (!event || !call || !call.call_id) {
       console.error("Invalid webhook payload:", { event, call });
