@@ -120,7 +120,7 @@ export async function POST(req) {
     } else {
       // Case 2: Initiate calls for all contacts (without requiring userId)
       const contacts = await prisma.contact.findMany({
-        where: userId ? { userId } : {}, // Fetch all contacts if userId is null
+         // Fetch all contacts if userId is null
       });
 
       if (contacts.length === 0) {
