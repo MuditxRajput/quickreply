@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import axios from "axios";
 import { BarChart2, Clock, Phone, TrendingUp, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
+import toast, { Toaster } from "react-hot-toast";
 import CallDetailModal from "./CallDetailModal";
 import ContactList from "./contactList";
 import UploadCSV from "./UploadCSV";
@@ -94,11 +95,13 @@ export default function AICallsPage() {
     try {
       setLoading(true);
       const response = await axios.get("/api/calls/dashboard/stats", { withCredentials: true });
-      console.log("response", response.data);
+      
       setStats(response.data);
+      toast.success("Dashboard stats loaded successfully");
     } catch (err) {
       console.error("Error fetching stats:", err);
       setError(err.response?.data?.error || "Failed to fetch dashboard stats");
+      toast.error(err.response?.data?.error || "Failed to fetch dashboard stats");
     } finally {
       setLoading(false);
     }
@@ -112,13 +115,14 @@ export default function AICallsPage() {
   const handleCallAll = async () => {
     try {
       setLoading(true);
+      toast.loading("Initiating calls...", { id: "callAll" });
       const response = await axios.post("/api/calls", {}, { withCredentials: true });
       const { message, successfulCalls, failedCalls } = response.data;
-      alert(`${message}\nSuccessful: ${successfulCalls}\nFailed: ${failedCalls}`);
+      toast.success(`${message}\nSuccessful: ${successfulCalls}\nFailed: ${failedCalls}`, { id: "callAll" });
       await fetchStats();
     } catch (error) {
       console.error("Error starting calls:", error);
-      alert(`Failed to start calls: ${error.response?.data?.error || error.message}`);
+      toast.error(`Failed to start calls: ${error.response?.data?.error || error.message}`, { id: "callAll" });
     } finally {
       setLoading(false);
     }
@@ -140,6 +144,7 @@ export default function AICallsPage() {
             )}
           </div>
         </div>
+        <Toaster position="top-right" />
       </div>
     );
   }
@@ -509,6 +514,7 @@ export default function AICallsPage() {
           {selectedCall && <CallDetailModal call={selectedCall} onClose={() => setSelectedCall(null)} />}
         </div>
       </div>
+      <Toaster position="top-right" /> {/* Add Toaster component */}
     </div>
   );
 }

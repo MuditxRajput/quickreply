@@ -24,18 +24,19 @@ export async function GET(req) {
     const userId = getUserIdFromToken(req);
 
     // Fetch aggregated call statistics (conditionally using userId)
-    const whereClause = userId ? { userId } : {}; // Apply filter only if userId exists
-
-    const totalCalls = await prisma.call.count({ where: whereClause });
+    // const whereClause = userId ? { userId } : {}; // Apply filter only if userId exists
+    // console.log("whereClause", whereClause);
+    const totalCalls = await prisma.call.count();
+   
     const completedCalls = await prisma.call.count({
-      where: { ...whereClause, status: "completed" },
+      where: {  status: "completed" },
     });
     const successRate = totalCalls > 0 ? ((completedCalls / totalCalls) * 100).toFixed(2) : 0;
 
     // Fetch average call duration
     const avgDurationResult = await prisma.call.aggregate({
       _avg: { duration: true },
-      where: { ...whereClause, duration: { not: null } },
+      where: {  duration: { not: null } },
     });
     const avgDuration = avgDurationResult._avg.duration || 0;
 
@@ -56,20 +57,20 @@ export async function GET(req) {
       const dateStr = dayStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
       const totalCallsForDay = await prisma.call.count({
-        where: { ...whereClause, startTime: { gte: dayStart, lt: dayEnd } },
+        where: {  startTime: { gte: dayStart, lt: dayEnd } },
       });
 
       const completedCallsForDay = await prisma.call.count({
-        where: { ...whereClause, startTime: { gte: dayStart, lt: dayEnd }, status: "completed" },
+        where: {  startTime: { gte: dayStart, lt: dayEnd }, status: "completed" },
       });
 
       const failedCallsForDay = await prisma.call.count({
-        where: { ...whereClause, startTime: { gte: dayStart, lt: dayEnd }, status: "failed" },
+        where: {  startTime: { gte: dayStart, lt: dayEnd }, status: "failed" },
       });
 
       const avgDurationForDayData = await prisma.call.aggregate({
         _avg: { duration: true },
-        where: { ...whereClause, startTime: { gte: dayStart, lt: dayEnd }, duration: { not: null } },
+        where: {  startTime: { gte: dayStart, lt: dayEnd }, duration: { not: null } },
       });
       const avgDurationForDay = avgDurationForDayData._avg.duration || 0;
 
@@ -85,7 +86,7 @@ export async function GET(req) {
     // Fetch call status distribution
     const statusCounts = await prisma.call.groupBy({
       by: ["status"],
-      where: whereClause,
+      // where: whereClause,
       _count: { status: true },
     });
 
@@ -96,7 +97,7 @@ export async function GET(req) {
 
     // Fetch recent calls (limited to 5 for dashboard)
     const recentCalls = await prisma.call.findMany({
-      where: whereClause,
+      // where: whereClause,
       orderBy: { startTime: "desc" },
       take: 5,
       select: {
@@ -133,6 +134,8 @@ export async function GET(req) {
       contactPhone: call.contact?.phone || "Unknown",
       contactName: call.contact?.fullName || "Unknown",
     }));
+
+  
 
     return NextResponse.json({
       totalCalls,
